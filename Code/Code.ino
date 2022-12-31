@@ -53,6 +53,9 @@ void setup()
   Serial1.println("AT+CSMP  = 17,167,0,0 ");
   delay(1000);
 
+  Serial1.println("AT+CPMS = \"SM\",\"ME\",\"SM\" ");
+  delay(1000);
+  
   digitalWrite(SLEEP_PIN, HIGH); // Sleep Mode ON
 }
 
@@ -72,7 +75,7 @@ void loop()
         {
           Get_gmap_link(0);  // Send Location without Call
           digitalWrite(SLEEP_PIN, HIGH);// Sleep Mode ON
-
+          
         }
 
         else if (fromGSM == "RING\r")
@@ -200,6 +203,9 @@ void Get_gmap_link(bool makeCall)
     delay(1000);
     Serial1.println((char)26);
     delay(1000);
+
+    Serial1.println("AT+CMGD=1,4"); // delete stored SMS to save memory
+    delay(5000);
   }
   response = "";
   res = "";
