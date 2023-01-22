@@ -47,16 +47,16 @@ void setup()
   Serial1.println("AT+SLEEP = 1");    // Configuring Sleep Mode to 1
   delay(1000);
 
-  Serial1.println("AT+CMGF = 1");
+  Serial1.println("AT+CMGF = 1");    // Select SMS message format = text mode
   delay(1000);
 
-  Serial1.println("AT+CSMP  = 17,167,0,0 ");
+  Serial1.println("AT+CSMP  = 17,167,0,0 ");     // Set Text Mode Parameters = (7bit encode of message to store or send in text mode)
   delay(1000);
 
-  Serial1.println("AT+CPMS = \"SM\",\"ME\",\"SM\" ");
+  Serial1.println("AT+CPMS = \"SM\",\"ME\",\"SM\" ");    // Preferred SMS message storage = sim memory sim
   delay(1000);
   
-  digitalWrite(SLEEP_PIN, HIGH); // Sleep Mode ON
+  digitalWrite(SLEEP_PIN, HIGH);                    // Sleep Mode ON
 }
 
 void loop()
@@ -82,7 +82,7 @@ void loop()
         {
           digitalWrite(SLEEP_PIN, LOW); // Sleep Mode OFF
           Serial.println("---------ITS RINGING-------");
-          Serial1.println("ATA");
+          Serial1.println("ATA");         // receive
         }
 
         else if (fromGSM == "NO CARRIER\r")
