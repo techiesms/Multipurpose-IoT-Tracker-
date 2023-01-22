@@ -162,7 +162,8 @@ void Get_gmap_link(bool makeCall)
   res = res.substring(17, 38);
   response = &res[0];
 
-  Serial.print("Recevied Data - "); Serial.println(response); // printin the String in lower character form
+  Serial.print("Recevied Data - "); 
+  Serial.println(response); // printin the String in lower character form
   Serial.println("\n");
 
   if (strstr(response, "GPS NOT"))
@@ -199,7 +200,7 @@ void Get_gmap_link(bool makeCall)
     Serial1.println("AT+CMGS=\"" + SOS_NUM + "\"\r");
     delay(1000);
 
-    Serial1.println ("I'm here " + Gmaps_link);
+    Serial1.println ("I'm here: " + Gmaps_link);
     delay(1000);
     Serial1.println((char)26);
     delay(1000);
