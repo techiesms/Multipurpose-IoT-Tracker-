@@ -55,6 +55,12 @@ void setup()
 
   Serial1.println("AT+CPMS = \"SM\",\"ME\",\"SM\" ");
   delay(1000);
+
+  Serial1.println("AT+SNFS = 2");
+  delay(1000);
+
+  Serial1.println("AT+CLVL = 8");
+  delay(1000);
   
   digitalWrite(SLEEP_PIN, HIGH); // Sleep Mode ON
 }
