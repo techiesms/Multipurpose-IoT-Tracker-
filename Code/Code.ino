@@ -1,13 +1,15 @@
 #include "WiFi.h"
+#define DEBUG true
 
-#define SOS D3
-#define SLEEP_PIN D2 // Make this pin HIGH to make A9G board to go to sleep mode
 
-String SOS_NUM = "+91xxxxxxxxxx"; // Add a number on which you want to receive call or SMS
+//******************* Pin Configurations *******************//
 
-int SOS_Time = 5; // Press the button 5 sec
+#define A9G_PON     D10
+#define A9G_LOWP    D2
+#define SOS_Button D3
 
-// Necessary Variables
+
+//******************* Necessary Variables *******************//
 boolean stringComplete = false;
 String inputString = "";
 String fromGSM = "";
@@ -15,54 +17,124 @@ bool CALL_END = 1;
 char* response = " ";
 String res = "";
 int c = 0;
+String msg;
+String custom_message;
+
+//******************* SIM Paramaters *******************//
+
+
+String SOS_NUM = "+91xxxxxxxxxx";
+
+
+
+//******************* SOS Button Press  *******************//
+int SOS_Time = 5; // Press the button 5 sec
+
+void A9G_Ready_msg();
 
 void setup()
 {
-  Serial.begin(115200);                      // For Serial Monitor
-  Serial1.begin(115200, SERIAL_8N1, D0, D1); // For A9G Board
+  Serial.begin(115200);
+  Serial1.begin(115200, SERIAL_8N1, D0, D1);
 
+  pinMode(A9G_PON, OUTPUT);//LOW LEVEL ACTIVE
+  //  pinMode(A9G_RST, OUTPUT);//HIGH LEVEL ACTIVE
+  pinMode(A9G_LOWP, OUTPUT);//LOW LEVEL ACTIVE
+
+  //  digitalWrite(A9G_RST, LOW);
+  digitalWrite(A9G_LOWP, HIGH);
+  digitalWrite(A9G_PON, HIGH);
+  delay(1000);
+  digitalWrite(A9G_PON, LOW);
+  delay(10000);
 
   // Making Radio OFF for power saving
   WiFi.mode(WIFI_OFF);  // WiFi OFF
   btStop();   // Bluetooth OFF
 
-  pinMode(SOS, INPUT_PULLUP);
-  pinMode(SLEEP_PIN, OUTPUT);
+  pinMode(SOS_Button, INPUT_PULLUP);
+  pinMode(A9G_LOWP, OUTPUT);
 
   // Waiting for A9G to setup everything for 20 sec
   delay(20000);
 
 
-  digitalWrite(SLEEP_PIN, LOW); // Sleep Mode OFF
+  digitalWrite(A9G_LOWP, LOW); // Sleep Mode OFF
 
-  Serial1.println("AT");               // Just Checking
-  delay(1000);
+  // Just Checking
+  msg = "";
+  msg = sendData("AT", 1000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT", 1000, DEBUG);
+    Serial.println("Trying");
+  }
 
-  Serial1.println("AT+GPS = 1");      // Turning ON GPS
-  delay(1000);
 
-  Serial1.println("AT+GPSLP = 2");      // GPS low power
-  delay(1000);
+  // Turning ON GPS
+  msg = "";
+  msg = sendData("AT+GPS=1", 2000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT+GPS=1", 1000, DEBUG);
+    Serial.println("Trying");
+  }
 
-  Serial1.println("AT+SLEEP = 1");    // Configuring Sleep Mode to 1
-  delay(1000);
+  // GPS low power
+  msg = "";
+  msg = sendData("AT+GPSLP = 2", 2000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT+GPSLP = 2", 1000, DEBUG);
+    Serial.println("Trying");
+  }
 
-  Serial1.println("AT+CMGF = 1");
-  delay(1000);
+  // Configuring Sleep Mode to 1
+  msg = "";
+  msg = sendData("AT+SLEEP = 1", 2000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT+SLEEP = 1", 1000, DEBUG);
+    Serial.println("Trying");
+  }
 
-  Serial1.println("AT+CSMP  = 17,167,0,0 ");
-  delay(1000);
+  // For SMS
+  msg = "";
+  msg = sendData("AT+CMGF = 1", 2000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT+CMGF = 1", 1000, DEBUG);
+    Serial.println("Trying");
+  }
 
-  Serial1.println("AT+CPMS = \"SM\",\"ME\",\"SM\" ");
-  delay(1000);
+  msg = "";
+  msg = sendData("AT+CSMP  = 17,167,0,0 ", 2000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT+CSMP  = 17,167,0,0 ", 1000, DEBUG);
+    Serial.println("Trying");
+  }
 
-  Serial1.println("AT+SNFS = 2");
-  delay(1000);
+  msg = "";
+  msg = sendData("AT+CPMS = \"SM\",\"ME\",\"SM\" ", 2000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT+CPMS = \"SM\",\"ME\",\"SM\" ", 1000, DEBUG);
+    Serial.println("Trying");
+  }
 
-  Serial1.println("AT+CLVL = 8");
-  delay(1000);
-  
-  digitalWrite(SLEEP_PIN, HIGH); // Sleep Mode ON
+
+  // For Speaker
+  msg = "";
+  msg = sendData("AT+SNFS=2", 2000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT+SNFS=2", 1000, DEBUG);
+    Serial.println("Trying");
+  }
+
+  msg = "";
+  msg = sendData("AT+CLVL=8", 2000, DEBUG);
+  while ( msg.indexOf("OK") == -1 ) {
+    msg = sendData("AT+CLVL=8", 1000, DEBUG);
+    Serial.println("Trying");
+  }
+
+  A9G_Ready_msg(); // Sending Ready Msg to SOS Number
+
+  digitalWrite(A9G_LOWP, HIGH); // Sleep Mode ON
 }
 
 void loop()
@@ -77,16 +149,43 @@ void loop()
       if (inChar == '\n') {
 
         //check the state
-        if (fromGSM == "SEND LOCATION\r")
+        if (fromGSM == "SEND LOCATION\r" || fromGSM == "send location\r" || fromGSM == "Send Location\r")
         {
           Get_gmap_link(0);  // Send Location without Call
-          digitalWrite(SLEEP_PIN, HIGH);// Sleep Mode ON
-          
+          digitalWrite(A9G_LOWP, HIGH);// Sleep Mode ON
+
         }
 
+        //check the state
+        else if (fromGSM == "BATTERY?\r" || fromGSM == "battery?\r" || fromGSM == "Battery?\r")
+        {
+          digitalWrite(A9G_LOWP, LOW); // Sleep Mode OFF
+          Serial.println("---------Battery Status-------");
+          msg = "";
+          msg = sendData("AT+CBC?", 2000, DEBUG);
+          while ( msg.indexOf("OK") == -1 ) {
+            msg = sendData("AT+CBC?", 1000, DEBUG);
+            Serial.println("Trying");
+          }
+
+          msg = msg.substring(19, 24);
+          response = &msg[0];
+
+          Serial.print("Recevied Data - "); Serial.println(response); // printin the String in lower character form
+          Serial.println("\n");
+
+
+          custom_message = response;
+          Send_SMS(custom_message);
+
+
+
+        }
+
+        // For Auto Call Recieve
         else if (fromGSM == "RING\r")
         {
-          digitalWrite(SLEEP_PIN, LOW); // Sleep Mode OFF
+          digitalWrite(A9G_LOWP, LOW); // Sleep Mode OFF
           Serial.println("---------ITS RINGING-------");
           Serial1.println("ATA");
         }
@@ -95,7 +194,7 @@ void loop()
         {
           Serial.println("---------CALL ENDS-------");
           CALL_END = 1;
-          digitalWrite(SLEEP_PIN, HIGH);// Sleep Mode ON
+          digitalWrite(A9G_LOWP, HIGH);// Sleep Mode ON
         }
 
         //write the actual response
@@ -118,14 +217,14 @@ void loop()
     }
 
     // When SOS button is pressed
-    if (digitalRead(SOS) == LOW && CALL_END == 1)
+    if (digitalRead(SOS_Button) == LOW && CALL_END == 1)
     {
       Serial.print("Calling In.."); // Waiting for 5 sec
       for (c = 0; c < SOS_Time; c++)
       {
         Serial.println((SOS_Time - c));
         delay(1000);
-        if (digitalRead(SOS) == HIGH)
+        if (digitalRead(SOS_Button) == HIGH)
           break;
       }
 
@@ -152,7 +251,7 @@ void Get_gmap_link(bool makeCall)
 {
 
 
-  digitalWrite(SLEEP_PIN, LOW);
+  digitalWrite(A9G_LOWP, LOW);
   delay(1000);
   Serial1.println("AT+LOCATION = 2");
   Serial.println("AT+LOCATION = 2");
@@ -175,15 +274,8 @@ void Get_gmap_link(bool makeCall)
   {
     Serial.println("No Location data");
     //------------------------------------- Sending SMS without any location
-    Serial1.println("AT+CMGF=1");
-    delay(1000);
-    Serial1.println("AT+CMGS=\"" + SOS_NUM + "\"\r");
-    delay(1000);
-
-    Serial1.println ("Unable to fetch location. Please try again");
-    delay(1000);
-    Serial1.println((char)26);
-    delay(1000);
+    custom_message = "Unable to fetch location. Please try again";
+    Send_SMS(custom_message);
   }
   else
   {
@@ -198,20 +290,13 @@ void Get_gmap_link(bool makeCall)
     Serial.println(lat);
     Serial.println(longi);
 
-    String Gmaps_link = ( "http://maps.google.com/maps?q=" + lat + "+" + longi); //http://maps.google.com/maps?q=38.9419+-78.3020
+    String Gmaps_link = "I'm Here " + ( "http://maps.google.com/maps?q=" + lat + "+" + longi); //http://maps.google.com/maps?q=38.9419+-78.3020
     //------------------------------------- Sending SMS with Google Maps Link with our Location
-    Serial1.println("AT+CMGF=1");
-    delay(1000);
-    Serial1.println("AT+CMGS=\"" + SOS_NUM + "\"\r");
-    delay(1000);
 
-    Serial1.println ("I'm here " + Gmaps_link);
-    delay(1000);
-    Serial1.println((char)26);
-    delay(1000);
 
-    Serial1.println("AT+CMGD=1,4"); // delete stored SMS to save memory
-    delay(5000);
+    custom_message = Gmaps_link;
+    Send_SMS(custom_message);
+
   }
   response = "";
   res = "";
@@ -220,5 +305,53 @@ void Get_gmap_link(bool makeCall)
     Serial.println("Calling Now");
     Serial1.println("ATD" + SOS_NUM);
     CALL_END = 0;
+  }
+}
+
+void A9G_Ready_msg()
+{
+
+  custom_message = "A9G Ready!!";
+  Send_SMS(custom_message);
+
+}
+
+String sendData(String command, const int timeout, boolean debug)
+{
+  String temp = "";
+  Serial1.println(command);
+  long int time = millis();
+  while ( (time + timeout) > millis())
+  {
+    while (Serial1.available())
+    {
+      char c = Serial1.read();
+      temp += c;
+    }
+  }
+  if (debug)
+  {
+    Serial.print(temp);
+  }
+  return temp;
+}
+
+
+void Send_SMS(String message)
+{
+  //for (int i = 0; i < Total_Numbers; i++)
+  {
+    Serial1.println("AT+CMGF=1");
+    delay(1000);
+    Serial1.println("AT+CMGS=\"" + SOS_NUM + "\"\r");
+    delay(1000);
+
+    Serial1.println (message);
+    delay(1000);
+    Serial1.println((char)26);
+    delay(1000);
+
+    Serial1.println("AT+CMGD=1,4"); // delete stored SMS to save memory
+    delay(3000);
   }
 }
